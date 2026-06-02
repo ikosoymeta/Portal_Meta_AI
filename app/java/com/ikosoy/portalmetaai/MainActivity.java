@@ -55,8 +55,8 @@ public class MainActivity extends Activity {
     private static final int MAX_UTT_MS = 12000;
     private static final int IDLE_WAIT_MS = 8000;    // idle: re-poll flags every 8 s
     private static final int ACTIVE_WAIT_MS = 20000; // active: silence this long -> end reminder
-    private static final int MIN_ABS_RMS = 550;      // absolute speech floor
-    private static final double SPEECH_MULT = 3.0;   // speech if rms > noiseFloor * this
+    private static final int MIN_ABS_RMS = 480;      // absolute speech floor
+    private static final double SPEECH_MULT = 2.2;   // speech if rms > noiseFloor * this
     // Portal's default TTS engine (FbGiga5) has no third-party voice model
     // ("empty language model path"); this Nuance-backed engine has voice "Zoe".
     private static final String TTS_ENGINE = "com.facebook.aloha.fbttsservice";
@@ -321,13 +321,16 @@ public class MainActivity extends Activity {
         short[][] pre = new short[10][]; int preIdx = 0, preCount = 0;
         double noiseFloor = MIN_ABS_RMS;
         boolean inSpeech = false;
-        int waited = 0, trailingSil = 0, speechMs = 0;
+        int waited = 0, trailingSil = 0, speechMs = 0; double peak = 0;
 
         while (running) {
             if ((mode == 0 && startReq) || (mode == 1 && stopReq)) return null;
             int n = rec.read(frame, 0, FRAME);
             if (n <= 0) continue;
             double rms = rmsOf(frame, n);
+            if (rms > peak) peak = rms;
+            if (!inSpeech && waited > 0 && waited % 2000 == 0)
+                android.util.Log.i("PortalMetaAI", "fg mic peak rms=" + (int) peak);
             double thresh = Math.max(MIN_ABS_RMS, noiseFloor * SPEECH_MULT);
 
             if (!inSpeech) {
