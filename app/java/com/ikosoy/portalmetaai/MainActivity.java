@@ -50,13 +50,13 @@ public class MainActivity extends Activity {
     public static final String EXTRA_AUTOSTART = "autostart";  // set by the overlay orb tap
     private static final int SAMPLE_RATE = 16000;
     private static final int FRAME = 320;            // 20 ms @ 16 kHz
-    private static final int END_SILENCE_MS = 700;   // trailing silence ends an utterance
-    private static final int MIN_UTT_MS = 350;       // ignore shorter blips
+    private static final int END_SILENCE_MS = 600;   // trailing silence ends an utterance
+    private static final int MIN_UTT_MS = 300;       // ignore shorter blips
     private static final int MAX_UTT_MS = 12000;
     private static final int IDLE_WAIT_MS = 8000;    // idle: re-poll flags every 8 s
     private static final int ACTIVE_WAIT_MS = 20000; // active: silence this long -> end reminder
-    private static final int MIN_ABS_RMS = 480;      // absolute speech floor
-    private static final double SPEECH_MULT = 2.2;   // speech if rms > noiseFloor * this
+    private static final int MIN_ABS_RMS = 400;      // absolute speech floor
+    private static final double SPEECH_MULT = 2.0;   // speech if rms > noiseFloor * this
     // Portal's default TTS engine (FbGiga5) has no third-party voice model
     // ("empty language model path"); this Nuance-backed engine has voice "Zoe".
     private static final String TTS_ENGINE = "com.facebook.aloha.fbttsservice";
@@ -242,7 +242,12 @@ public class MainActivity extends Activity {
 
                 setOrb("thinking");
                 String text = stt(utt);
-                if (text == null || text.trim().isEmpty()) { setOrb(mode == 1 ? "listening" : "idle"); continue; }
+                if (text == null || text.trim().isEmpty()) {
+                    android.util.Log.i("PortalMetaAI", "stt empty (mode=" + mode + ")");
+                    setOrb(mode == 1 ? "listening" : "idle"); continue;
+                }
+                android.util.Log.i("PortalMetaAI", "heard[mode=" + mode + "]: \"" + text.trim()
+                        + "\" wake=" + isWake(text.trim().toLowerCase(Locale.US)));
                 handleTranscript(text.trim());
             }
         } catch (Throwable t) {
@@ -288,7 +293,7 @@ public class MainActivity extends Activity {
     private void enterActive() {
         mode = 1; convUuid = null; awaitingEnd = false;
         setOrb("speaking");
-        speakBlocking("Hi, I'm Meta. How can I help?");
+        speakBlocking("Hi, go ahead.");
         setOrb("listening");
     }
 
@@ -300,7 +305,15 @@ public class MainActivity extends Activity {
     }
 
     private static boolean isWake(String s) {
-        return s.matches(".*\\b(hi|hey|high)[,\\s]+(meta|metta|mehta|meda|metre)\\b.*");
+        // common whisper spellings of "Hi Meta"
+        if (s.matches(".*\\b(hi|hey|high|hello|ok|okay)[,\\s]+(meta|metta|mehta|meda|metre|meeta|mira|meadow|matter|motto|mehra|beta|murra)\\b.*"))
+            return true;
+        // fuzzy: short utterance that sounds like hi/hey/hello + met...
+        String d = s.replaceAll("[^a-z]", "");
+        if (d.length() <= 18 && (d.contains("himeta") || d.contains("heymeta") || d.contains("hellometa")
+                || ((d.startsWith("hi") || d.startsWith("hey") || d.startsWith("hello")) && d.contains("met"))))
+            return true;
+        return false;
     }
     private static boolean isStop(String s) {
         return s.matches(".*\\b(meta|metta|mehta)[,\\s]+stop\\b.*")
@@ -367,7 +380,11 @@ public class MainActivity extends Activity {
                 if (speechMs >= MAX_UTT_MS) break;
             }
         }
-        if (speechMs < MIN_UTT_MS) return null;
+        if (speechMs < MIN_UTT_MS) {
+            if (inSpeech) android.util.Log.i("PortalMetaAI", "utt too short (" + speechMs + "ms, peak " + (int) peak + ")");
+            return null;
+        }
+        android.util.Log.i("PortalMetaAI", "utt captured " + speechMs + "ms peak=" + (int) peak);
         byte[] bytes = pcm.toByteArray();
         short[] out = new short[bytes.length / 2];
         for (int i = 0; i < out.length; i++)
