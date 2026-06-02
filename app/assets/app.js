@@ -8,7 +8,7 @@ var HINTS = {
   idle: 'Tap the orb or say <b>“Hi Meta”</b> to start',
   listening: 'Listening… say <b>“Meta Stop”</b> to end',
   thinking: 'Thinking…',
-  speaking: 'Meta is speaking…',
+  speaking: 'Meta is speaking… tap the orb to interrupt',
   nomic: 'Microphone permission needed'
 };
 var STATES = ["idle", "listening", "thinking", "speaking", "nomic"];

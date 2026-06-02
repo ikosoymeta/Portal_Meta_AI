@@ -72,6 +72,8 @@ public class MainActivity extends Activity {
     private volatile boolean startReq = false; // tap-to-start
     private volatile boolean stopReq = false;  // tap-to-stop
     private volatile boolean awaitingEnd = false;
+    private volatile boolean speaking = false;          // TTS is talking
+    private volatile CountDownLatch speakLatch;         // unblock speakBlocking on interrupt
     private String convUuid = null;
 
     @Override
@@ -181,7 +183,9 @@ public class MainActivity extends Activity {
     /* ----------------------------- JS bridge ----------------------------- */
     private class Bridge {
         @JavascriptInterface public void onOrbTap() {
-            if (mode == 0) startReq = true; else stopReq = true;
+            if (mode == 0) startReq = true;            // idle -> start
+            else if (speaking) interruptSpeech();       // talking -> stop & listen (barge-in)
+            else stopReq = true;                        // listening -> end session
         }
         /** Apps quick-link: stop the session and return to the Portal launcher. */
         @JavascriptInterface public void goAppHome() {
@@ -303,13 +307,21 @@ public class MainActivity extends Activity {
             || s.matches(".*\\bstop[,\\s]+(meta|metta|mehta)\\b.*");
     }
     // "Meta Go Home" / "go home" / "go to apps" -> stop session, open the launcher.
+    // Also fuzzy-matches short mishears like "Metadohum" / "meta go hum".
     private static boolean isGoHome(String s) {
-        return s.matches(".*\\bgo\\s+home\\b.*")
+        if (s.matches(".*\\bgo\\s+home\\b.*")
             || s.matches(".*\\b(meta|metta|mehta)[,\\s]+home\\b.*")
             || s.matches(".*\\bgo\\s+(to\\s+)?(the\\s+)?apps?\\b.*")
             || s.matches(".*\\bopen\\s+apps?\\b.*")
             || s.matches(".*\\bgo\\s+back\\b.*")
-            || s.matches(".*\\bhome\\s+screen\\b.*");
+            || s.matches(".*\\bhome\\s+screen\\b.*")) return true;
+        // fuzzy: short single-token mishears of "meta go home"
+        String d = s.replaceAll("[^a-z]", "");
+        if (d.length() <= 16 && (d.contains("gohome") || d.contains("metahome")
+                || d.contains("metagohome")
+                || (d.startsWith("meta") && (d.contains("home") || d.contains("hum") || d.contains("hom")))))
+            return true;
+        return false;
     }
 
     /* ----------------------------- VAD capture ---------------------------- */
@@ -437,15 +449,25 @@ public class MainActivity extends Activity {
         if (text == null || text.isEmpty()) return;
         if (!ttsReady) { try { Thread.sleep(Math.min(4000, 300 + text.length() * 35)); } catch (Exception e) {} return; }
         final CountDownLatch latch = new CountDownLatch(1);
+        speakLatch = latch;
         final String id = "u" + System.nanoTime();
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String s) {}
             @Override public void onDone(String s) { latch.countDown(); }
             @Override public void onError(String s) { latch.countDown(); }
         });
-        // chunk very long replies so the engine doesn't truncate
+        speaking = true;
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id);
         try { latch.await(Math.max(8, text.length() / 8) + 8, TimeUnit.SECONDS); } catch (Exception e) {}
+        speaking = false;
+        speakLatch = null;
+    }
+
+    /** Tap-to-interrupt: stop the assistant talking and return to listening. */
+    private void interruptSpeech() {
+        try { if (tts != null) tts.stop(); } catch (Exception ignored) {}
+        CountDownLatch l = speakLatch;
+        if (l != null) l.countDown();   // unblock speakBlocking immediately
     }
 
     /* ------------------------------ UI bridge ----------------------------- */

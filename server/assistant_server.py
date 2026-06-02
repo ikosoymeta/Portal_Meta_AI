@@ -82,6 +82,23 @@ def _fetch_profile():
         return {}
 
 
+def _fetch_worker_location(fbid):
+    """Best-effort coarse location (e.g. 'US - CA - Bay Area') via the devserver."""
+    sid = get_sid()
+    if not sid or not fbid:
+        return ""
+    try:
+        inner = "meta people.worker describe --id=%s --output=json" % fbid
+        proc = subprocess.run(["ek", "run", "-s", sid, inner],
+                              capture_output=True, text=True, timeout=40)
+        m = re.search(r"\{.*\}", proc.stdout or "", re.S)
+        if m:
+            return (json.loads(m.group(0)).get("locationName") or "").strip()
+    except Exception as e:
+        log("worker location fetch failed:", e)
+    return ""
+
+
 def build_user_context():
     """Build USER_CTX from the auto-pulled profile + the configured employee ID."""
     global USER_CTX
@@ -96,6 +113,16 @@ def build_user_context():
         bits.append(p["title"])
     if p.get("team"):
         bits.append("team " + p["team"])
+    # location / timezone so answers can be geo/time aware
+    loc = (p.get("location") or "").strip()
+    if (not loc) or ("remote location" in loc.lower()):
+        wl = _fetch_worker_location(p.get("id"))    # e.g. "US - CA - Bay Area - Remote"
+        if wl:
+            loc = wl
+    if loc:
+        bits.append("based in " + loc)
+    if p.get("timezone"):
+        bits.append("timezone " + p["timezone"])
     if p.get("id"):
         bits.append("FBID " + p["id"])
     USER_CTX = ("" if not bits else
@@ -107,6 +134,28 @@ def build_user_context():
 
 def _with_context(text):
     return (USER_CTX + "\n\n" + text) if USER_CTX else text
+
+
+def clean_markdown(t):
+    """Strip markdown so the reply reads naturally aloud and displays cleanly
+    (no spoken '## ' / '**' etc.)."""
+    if not t:
+        return t
+    t = re.sub(r"```.*?```", " ", t, flags=re.S)          # code fences
+    t = re.sub(r"`([^`]*)`", r"\1", t)                    # inline code
+    t = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", t)           # images
+    t = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", t)        # links -> text
+    t = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", t)           # headings at line start
+    t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)              # bold
+    t = re.sub(r"__([^_]+)__", r"\1", t)
+    t = re.sub(r"\*([^*]+)\*", r"\1", t)                  # italics
+    t = re.sub(r"~~([^~]+)~~", r"\1", t)
+    t = re.sub(r"(?m)^\s{0,3}[-*+]\s+", "", t)            # bullet markers
+    t = re.sub(r"(?m)^\s{0,3}>\s?", "", t)                # blockquote
+    t = t.replace("##", "").replace("**", "").replace("`", "")  # stray leftovers
+    t = re.sub(r"[ \t]{2,}", " ", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
 
 
 # --------------------------------------------------------------------------- #
@@ -160,7 +209,7 @@ def metamate_query(text, uuid=None):
         if m:
             try:
                 obj = json.loads(m.group(0))
-                return (obj.get("response", "").strip() or "(no answer)",
+                return (clean_markdown(obj.get("response", "").strip()) or "(no answer)",
                         obj.get("conversation_uuid") or uuid)
             except Exception as e:
                 log("json parse failed:", e, out[:200])
