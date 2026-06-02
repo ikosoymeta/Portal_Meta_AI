@@ -138,8 +138,12 @@ def transcribe(wav_bytes):
         proc = subprocess.run(["ek", "run", "-s", sid, cmd],
                               capture_output=True, text=True, timeout=60)
         text = (proc.stdout or "").strip()
-        text = re.sub(r"\[[^\]]*\]", " ", text)     # drop [BLANK_AUDIO] etc.
+        # drop whisper non-speech annotations: [BLANK_AUDIO], (gasps), *music* …
+        text = re.sub(r"[\[(*][^\])*]*[\])*]", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
+        # ignore transcripts with no actual words (punctuation/noise only)
+        if not re.search(r"[A-Za-z0-9]", text):
+            return ""
         return text
     except Exception as e:
         log("whisper failed:", e)

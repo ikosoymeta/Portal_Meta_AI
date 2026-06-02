@@ -2,6 +2,7 @@ package com.ikosoy.portalmetaai;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -46,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 public class MainActivity extends Activity {
 
     private static final String BASE = "http://127.0.0.1:8765";
+    public static final String EXTRA_AUTOSTART = "autostart";  // set by the overlay orb tap
     private static final int SAMPLE_RATE = 16000;
     private static final int FRAME = 320;            // 20 ms @ 16 kHz
     private static final int END_SILENCE_MS = 700;   // trailing silence ends an utterance
@@ -106,9 +108,15 @@ public class MainActivity extends Activity {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
-        } else {
-            startWorker();
         }
+        // Floating orb overlay over Home / App pages (tap to start a session).
+        try { startForegroundService(new Intent(this, OverlayService.class)); } catch (Exception ignored) {}
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);   // so onResume sees a fresh EXTRA_AUTOSTART
     }
 
     @Override
@@ -117,9 +125,29 @@ public class MainActivity extends Activity {
         else setOrb("nomic");
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        enterImmersive();
+        setOverlay(false);                       // we're foreground: hide the floating orb
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+            startWorker();
+            Intent it = getIntent();
+            if (it != null && it.getBooleanExtra(EXTRA_AUTOSTART, false)) {
+                it.removeExtra(EXTRA_AUTOSTART);
+                startReq = true;                 // overlay tap -> begin a session
+            }
+        }
+    }
+
+    @Override protected void onPause() {
+        super.onPause();
+        stopWorker();                            // stop listening when backgrounded
+        setOverlay(true);                        // show the floating orb over Home / App pages
+    }
+
     @Override protected void onDestroy() {
-        running = false;
-        if (worker != null) worker.interrupt();
+        stopWorker();
         if (tts != null) { tts.shutdown(); }
         super.onDestroy();
     }
@@ -129,10 +157,35 @@ public class MainActivity extends Activity {
         if (f) enterImmersive();
     }
 
+    private void setOverlay(boolean show) {
+        try {
+            Intent i = new Intent(this, OverlayService.class);
+            i.setAction(show ? OverlayService.ACTION_SHOW : OverlayService.ACTION_HIDE);
+            startService(i);
+        } catch (Exception ignored) {}
+    }
+
+    /** End any session and return to the Portal launcher (Home / App page). */
+    private void endAndGoHome() {
+        stopReq = true;
+        mode = 0;
+        try { if (tts != null) tts.stop(); } catch (Exception ignored) {}
+        try {
+            Intent i = new Intent(Intent.ACTION_MAIN);
+            i.addCategory(Intent.CATEGORY_HOME);
+            i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception ignored) {}
+    }
+
     /* ----------------------------- JS bridge ----------------------------- */
     private class Bridge {
         @JavascriptInterface public void onOrbTap() {
             if (mode == 0) startReq = true; else stopReq = true;
+        }
+        /** Apps quick-link: stop the session and return to the Portal launcher. */
+        @JavascriptInterface public void goAppHome() {
+            ui.post(new Runnable() { @Override public void run() { endAndGoHome(); } });
         }
     }
 
@@ -143,6 +196,13 @@ public class MainActivity extends Activity {
         setOrb("idle");
         worker = new Thread(new Runnable() { @Override public void run() { loop(); } }, "voice");
         worker.start();
+    }
+
+    private void stopWorker() {
+        running = false;
+        Thread w = worker; worker = null;
+        if (w != null) w.interrupt();
+        mode = 0; awaitingEnd = false; startReq = false; stopReq = false;
     }
 
     private void loop() {
@@ -189,6 +249,14 @@ public class MainActivity extends Activity {
 
     private void handleTranscript(String text) {
         String low = text.toLowerCase(Locale.US);
+        // "Meta Go Home" works in any state: stop the session and go to the App page.
+        if (isGoHome(low)) {
+            showUser(text);
+            if (mode == 1) { setOrb("speaking"); speakBlocking("Going home."); }
+            mode = 0; awaitingEnd = false;
+            ui.post(new Runnable() { @Override public void run() { endAndGoHome(); } });
+            return;
+        }
         if (mode == 0) {
             showUser(text);
             if (isWake(low)) enterActive(); else setOrb("idle");
@@ -231,6 +299,10 @@ public class MainActivity extends Activity {
     private static boolean isStop(String s) {
         return s.matches(".*\\b(meta|metta|mehta)[,\\s]+stop\\b.*")
             || s.matches(".*\\bstop[,\\s]+(meta|metta|mehta)\\b.*");
+    }
+    // "Meta Go Home" / "go home" -> stop session, open the App page.
+    private static boolean isGoHome(String s) {
+        return s.matches(".*\\bgo\\s+home\\b.*") || s.matches(".*\\b(meta|metta|mehta)[,\\s]+home\\b.*");
     }
 
     /* ----------------------------- VAD capture ---------------------------- */

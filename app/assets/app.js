@@ -36,5 +36,8 @@ window.showMeta = function (t) {
   $("orb").addEventListener("click", function () {
     if (window.Android && window.Android.onOrbTap) window.Android.onOrbTap();
   });
+  $("home-btn").addEventListener("click", function () {
+    if (window.Android && window.Android.goAppHome) window.Android.goAppHome();
+  });
   window.setOrb("idle");
 })();

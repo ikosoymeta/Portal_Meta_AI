@@ -16,6 +16,8 @@ echo "installing $APK -> $SERIAL"
 "$ADB" -s "$SERIAL" install -r "$APK"
 echo "granting RECORD_AUDIO (user build can't show the runtime dialog)…"
 "$ADB" -s "$SERIAL" shell pm grant "$PKG" android.permission.RECORD_AUDIO 2>/dev/null || true
+echo "granting SYSTEM_ALERT_WINDOW (floating orb overlay)…"
+"$ADB" -s "$SERIAL" shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow 2>/dev/null || true
 echo "adb reverse tcp:$PORT (Portal -> Mac proxy)…"
 "$ADB" -s "$SERIAL" reverse tcp:$PORT tcp:$PORT
 echo "launching $PKG/.MainActivity"
