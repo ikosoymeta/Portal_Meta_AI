@@ -206,6 +206,7 @@ public class MainActivity extends Activity {
     }
 
     private void loop() {
+        if (!Mic.acquire(6000)) { setOrb("nomic"); return; }   // wait for the wake-listener to release
         AudioRecord rec = null;
         try {
             int min = AudioRecord.getMinBufferSize(SAMPLE_RATE,
@@ -244,6 +245,7 @@ public class MainActivity extends Activity {
             setOrb("nomic");
         } finally {
             if (rec != null) { try { rec.stop(); } catch (Exception e) {} rec.release(); }
+            Mic.release();
         }
     }
 
@@ -300,9 +302,14 @@ public class MainActivity extends Activity {
         return s.matches(".*\\b(meta|metta|mehta)[,\\s]+stop\\b.*")
             || s.matches(".*\\bstop[,\\s]+(meta|metta|mehta)\\b.*");
     }
-    // "Meta Go Home" / "go home" -> stop session, open the App page.
+    // "Meta Go Home" / "go home" / "go to apps" -> stop session, open the launcher.
     private static boolean isGoHome(String s) {
-        return s.matches(".*\\bgo\\s+home\\b.*") || s.matches(".*\\b(meta|metta|mehta)[,\\s]+home\\b.*");
+        return s.matches(".*\\bgo\\s+home\\b.*")
+            || s.matches(".*\\b(meta|metta|mehta)[,\\s]+home\\b.*")
+            || s.matches(".*\\bgo\\s+(to\\s+)?(the\\s+)?apps?\\b.*")
+            || s.matches(".*\\bopen\\s+apps?\\b.*")
+            || s.matches(".*\\bgo\\s+back\\b.*")
+            || s.matches(".*\\bhome\\s+screen\\b.*");
     }
 
     /* ----------------------------- VAD capture ---------------------------- */
