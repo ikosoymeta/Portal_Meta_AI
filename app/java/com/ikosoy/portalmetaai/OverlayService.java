@@ -45,8 +45,8 @@ public class OverlayService extends Service {
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String a = intent != null ? intent.getAction() : null;
-        if (ACTION_SHOW.equals(a)) addOrb();
-        else if (ACTION_HIDE.equals(a)) removeOrb();
+        if (ACTION_HIDE.equals(a)) removeOrb();
+        else addOrb();              // null (initial start / sticky restart / boot) or SHOW
         return START_STICKY;
     }
 
@@ -73,7 +73,6 @@ public class OverlayService extends Service {
     private void buildOrb() {
         DisplayMetrics dm = getResources().getDisplayMetrics();
         int size = Math.round(78 * dm.density);
-        int margin = Math.round(18 * dm.density);
 
         orb = new ImageView(this);
         int round = getResources().getIdentifier("ic_launcher_round", "mipmap", getPackageName());
@@ -86,9 +85,10 @@ public class OverlayService extends Service {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT);
+        // Default position: top-right, just left of the launcher's profile bubble.
         lp.gravity = Gravity.TOP | Gravity.START;
-        lp.x = Math.max(0, dm.widthPixels - size - margin);
-        lp.y = Math.max(0, dm.heightPixels - size - margin * 3);
+        lp.x = Math.max(0, Math.round(dm.widthPixels * 0.892f) - size);
+        lp.y = Math.max(0, Math.round(dm.heightPixels * 0.089f - size / 2f));
 
         orb.setOnTouchListener(new View.OnTouchListener() {
             float downX, downY; int baseX, baseY; boolean moved;

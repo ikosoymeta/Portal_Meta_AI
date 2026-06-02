@@ -20,6 +20,10 @@ echo "granting SYSTEM_ALERT_WINDOW (floating orb overlay)…"
 "$ADB" -s "$SERIAL" shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow 2>/dev/null || true
 echo "adb reverse tcp:$PORT (Portal -> Mac proxy)…"
 "$ADB" -s "$SERIAL" reverse tcp:$PORT tcp:$PORT
-echo "launching $PKG/.MainActivity"
-"$ADB" -s "$SERIAL" shell am start -n "$PKG/.MainActivity"
+# No launcher icon: bootstrap once (clears the freshly-installed "stopped" state
+# and starts the overlay service), then go Home so the floating orb shows.
+echo "bootstrapping (starts the floating orb)…"
+"$ADB" -s "$SERIAL" shell am start -n "$PKG/.MainActivity" >/dev/null
+sleep 1
+"$ADB" -s "$SERIAL" shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null
 echo "done. Start the proxy on the Mac:  bash scripts/run.sh"

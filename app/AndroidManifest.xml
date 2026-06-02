@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ikosoy.portalmetaai"
-    android:versionCode="2"
-    android:versionName="1.1">
+    android:versionCode="3"
+    android:versionName="1.2">
 
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
 
@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-feature android:name="android.hardware.microphone" android:required="true"/>
 
     <application
@@ -18,20 +19,27 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
         android:usesCleartextTraffic="true">
+        <!-- No LAUNCHER category on purpose: the app has no Apps-grid icon; it is
+             launched from the floating orb overlay. Still exported so adb/the orb
+             can start it by explicit component. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"/>
 
-        <!-- Floating orb over Home / App pages -->
+        <!-- Floating orb over Home / App pages (entry point; exported so it can be
+             bootstrapped via adb after install). -->
         <service
             android:name=".OverlayService"
-            android:exported="false"/>
+            android:exported="true"/>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
