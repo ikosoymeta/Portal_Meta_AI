@@ -155,7 +155,19 @@ def clean_markdown(t):
     t = re.sub(r"(?m)^\s{0,3}[-*+]\s+", "", t)            # bullet markers
     t = re.sub(r"(?m)^\s{0,3}>\s?", "", t)                # blockquote
     t = t.replace("##", "").replace("**", "").replace("`", "")  # stray leftovers
+    # --- strip sources/citations/URLs so TTS doesn't read them aloud ---
+    t = re.sub(r"(?s)\{\{#metamate_citation.*?(?:\{\{/metamate_citation\}\}|$)", "", t)  # Metamate citation blocks
+    t = re.sub(r"(?s)\{\{.*?\}\}", "", t)                # any other handlebars tokens
+    t = re.sub(r"\{\{.*$", "", t, flags=re.S)            # unclosed citation token -> end
+    t = re.sub(r"\[\^?\d+\]", "", t)                     # [1] [^1] citation markers
+    t = re.sub(r"(?i)\(\s*(source|src|ref|see)\b[^)]*\)", "", t)  # (source: ...) parentheticals
+    t = re.sub(r"https?://\S+", "", t)                   # bare URLs
+    t = re.sub(r"\bwww\.\S+", "", t)                     # bare www domains
+    t = re.sub(r"(?im)^\s*(sources?|references?|citations?|read more|learn more|links?)\s*:?.*$", "", t)  # whole source lines
+    t = re.sub(r"(?is)[\s.;,]*\b(sources?|references?|citations?)\s*:\s*$", ".", t)  # dangling 'Source:' label
+    t = re.sub(r"\(\s*\)", "", t)                        # empty parens left behind
     t = re.sub(r"[ \t]{2,}", " ", t)
+    t = re.sub(r"\s+([.,;:!?])", r"\1", t)               # fix spacing before punctuation
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()
 
