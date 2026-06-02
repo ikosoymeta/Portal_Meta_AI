@@ -1,0 +1,9 @@
+# whisper.cpp clone + model + build artifacts (large; rebuilt on the devserver)
+server/whisper.cpp/
+server/config.json
+
+# build outputs
+dist/*.apk
+
+# macOS
+.DS_Store

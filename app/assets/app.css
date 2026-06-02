@@ -1,0 +1,65 @@
+:root {
+  --bg: #05070d;
+  --fg: #ffffff;
+  --muted: #8a93a6;
+  --meta1: #0a7cff;
+  --meta2: #9b3cff;
+  --meta3: #00d4ff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: radial-gradient(120% 120% at 50% 0%, #0b1326 0%, #05070d 60%); color: var(--fg);
+  font-family: -apple-system, "Roboto", "Helvetica Neue", Arial, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+#app { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4vh 6vw; }
+#status { position: absolute; top: 4vh; font-size: 2.4vh; letter-spacing: 0.35em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------------- orb ---------------- */
+#orb {
+  position: relative; width: 42vh; height: 42vh; border: none; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.core {
+  position: relative; width: 24vh; height: 24vh; border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #6fd0ff 0%, var(--meta1) 38%, var(--meta2) 100%);
+  box-shadow: 0 0 8vh rgba(10,124,255,0.55), inset 0 0 5vh rgba(255,255,255,0.25);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+.glyph { font-size: 11vh; font-weight: 700; color: rgba(255,255,255,0.92); line-height: 1; }
+.ring { position: absolute; border-radius: 50%; border: 0.5vh solid rgba(0,212,255,0.35); opacity: 0; }
+.r1 { width: 30vh; height: 30vh; } .r2 { width: 36vh; height: 36vh; } .r3 { width: 42vh; height: 42vh; }
+
+/* waveform (speaking) + spinner (thinking), hidden unless active */
+.wave { position: absolute; display: none; align-items: center; gap: 1vh; height: 8vh; }
+.wave i { width: 1.1vh; height: 2vh; background: rgba(255,255,255,0.95); border-radius: 1vh; animation: wv 0.9s ease-in-out infinite; }
+.wave i:nth-child(2){ animation-delay:.15s } .wave i:nth-child(3){ animation-delay:.3s } .wave i:nth-child(4){ animation-delay:.45s } .wave i:nth-child(5){ animation-delay:.6s }
+@keyframes wv { 0%,100%{ height:2vh } 50%{ height:8vh } }
+.spinner { position: absolute; display: none; width: 9vh; height: 9vh; border-radius: 50%;
+  border: 0.8vh solid rgba(255,255,255,0.25); border-top-color: #fff; animation: sp 0.9s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+
+/* ---- state visuals ---- */
+.idle .core { animation: breathe 4s ease-in-out infinite; filter: saturate(0.8) brightness(0.85); }
+@keyframes breathe { 0%,100%{ transform: scale(0.96); } 50%{ transform: scale(1.02); } }
+
+.listening .core { filter: brightness(1.1); }
+.listening .ring { animation: ripple 2.4s ease-out infinite; }
+.listening .r2 { animation-delay: 0.8s; } .listening .r3 { animation-delay: 1.6s; }
+@keyframes ripple { 0%{ opacity: 0.6; transform: scale(0.7); } 100%{ opacity: 0; transform: scale(1.05); } }
+
+.thinking .glyph { display: none; } .thinking .spinner { display: block; }
+.thinking .core { filter: brightness(1); }
+
+.speaking .glyph { display: none; } .speaking .wave { display: flex; }
+.speaking .core { transform: scale(1.04); filter: brightness(1.18); box-shadow: 0 0 12vh rgba(0,212,255,0.7), inset 0 0 5vh rgba(255,255,255,0.3); }
+
+.nomic .core { background: radial-gradient(circle at 50% 40%, #5a5f6b, #2a2d34); box-shadow: none; }
+
+/* ---------------- text ---------------- */
+#hint { margin-top: 3vh; font-size: 2.6vh; color: var(--muted); text-align: center; }
+#hint b { color: var(--fg); }
+#convo { position: absolute; bottom: 4vh; width: 86vw; display: flex; flex-direction: column; gap: 1.2vh; align-items: stretch; }
+.bubble { font-size: 2.6vh; line-height: 1.4; padding: 1.6vh 2.4vw; border-radius: 16px; display: none; max-height: 26vh; overflow-y: auto; }
+.bubble.user { align-self: flex-end; background: #14233e; color: #dfe9ff; border: 1px solid #244067; max-width: 70%; }
+.bubble.meta { align-self: flex-start; background: #160f2e; color: #f1ebff; border: 1px solid #3a2a63; max-width: 86%; }
+.bubble.show { display: block; }

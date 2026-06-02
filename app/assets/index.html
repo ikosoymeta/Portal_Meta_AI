@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>Meta AI</title>
+  <link rel="stylesheet" href="app.css"/>
+</head>
+<body>
+  <div id="app">
+    <div id="status">Meta AI</div>
+
+    <button id="orb" aria-label="Meta AI">
+      <span class="ring r1"></span>
+      <span class="ring r2"></span>
+      <span class="ring r3"></span>
+      <span class="core">
+        <span class="wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="spinner"></span>
+        <span class="glyph">∞</span>
+      </span>
+    </button>
+
+    <div id="hint">Tap the orb or say <b>“Hi Meta”</b> to start</div>
+
+    <div id="convo">
+      <div id="user" class="bubble user"></div>
+      <div id="meta" class="bubble meta"></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# Portal Meta AI — WebView orb + native mic/TTS voice assistant.
+# Built (uncommitted) under fbsource//fbandroid/apps/samples/portal_metaai.
+#
+# Build:   buck2 build fbsource//fbandroid/apps/samples/portal_metaai:portal_metaai_arm64 --show-output
+# Install: ek ar 821LCM04Z1105A24 buck install fbsource//fbandroid/apps/samples/portal_metaai:portal_metaai_arm64 -r
+
+load("@fbsource//tools/build_defs/android:fb_android_binary.bzl", "fb_android_binary")
+load("@fbsource//tools/build_defs/android:fb_core_android_library.bzl", "fb_core_android_library")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+oncall("gator")
+
+fb_native.android_resource(
+    name = "portal_metaai-assets",
+    package = "com.ikosoy.portalmetaai",
+    assets = "assets",
+    res = "res",
+    visibility = ["PUBLIC"],
+)
+
+fb_core_android_library(
+    name = "portal_metaai-lib",
+    srcs = glob(["java/**/*.java"]),
+    deps = [":portal_metaai-assets"],
+)
+
+fb_android_binary(
+    name = "portal_metaai_arm64",
+    cpu_filters = ["arm64"],
+    keystore = "//fbandroid/keystores:debug",
+    manifest = "AndroidManifest.xml",
+    deps = [":portal_metaai-lib"],
+)
