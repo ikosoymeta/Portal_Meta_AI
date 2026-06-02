@@ -38,8 +38,10 @@ def load_config():
         # whisper.cpp runs on the devserver over the ek bridge (the Mac sandbox
         # blocks building/running it locally). Paths are on the devserver.
         "remoteWhisperCli": "/home/ikosoy/portal_metaai/whisper.cpp/build/bin/whisper-cli",
-        "remoteWhisperModel": "/home/ikosoy/portal_metaai/whisper.cpp/models/ggml-base.en.bin",
+        "remoteWhisperModel": "/home/ikosoy/portal_metaai/whisper.cpp/models/ggml-small.en.bin",
         "remoteTmp": "/tmp",
+        # bias the decoder toward the wake/command phrases (helps short far-field clips)
+        "whisperPrompt": "Hi Meta. Meta Stop. Meta Go Home. Yes. No.",
         "agent": "",          # optional metamate agent, e.g. "" for default routing
         "ekTimeout": 120,
         "verbose": True,
@@ -236,8 +238,10 @@ def transcribe(wav_bytes):
                        capture_output=True, text=True, timeout=20)
         subprocess.run(["ek", "push", "-s", sid, local, rtmp + "/"],
                        capture_output=True, text=True, timeout=30)
-        cmd = "%s -m %s -f %s -l en -nt -np -t 8" % (
-            CFG["remoteWhisperCli"], CFG["remoteWhisperModel"], remote)
+        prompt = str(CFG.get("whisperPrompt") or "").replace("'", "")
+        pflag = (" --carry-initial-prompt --prompt '%s'" % prompt) if prompt else ""
+        cmd = "%s -m %s -f %s -l en -nt -np -t 8 --beam-size 5%s" % (
+            CFG["remoteWhisperCli"], CFG["remoteWhisperModel"], remote, pflag)
         proc = subprocess.run(["ek", "run", "-s", sid, cmd],
                               capture_output=True, text=True, timeout=60)
         text = (proc.stdout or "").strip()
