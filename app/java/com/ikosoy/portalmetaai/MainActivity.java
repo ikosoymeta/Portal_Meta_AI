@@ -167,17 +167,22 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
-    /** End any session and return to the Portal launcher (Home / App page). */
-    private void endAndGoHome() {
-        stopReq = true;
-        mode = 0;
-        try { if (tts != null) tts.stop(); } catch (Exception ignored) {}
+    /** Leave the assistant and return to the Portal launcher (App page). */
+    private void goLauncher() {
         try {
             Intent i = new Intent(Intent.ACTION_MAIN);
             i.addCategory(Intent.CATEGORY_HOME);
             i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
         } catch (Exception ignored) {}
+    }
+
+    /** End any session and return to the Portal launcher (Home / App page). */
+    private void endAndGoHome() {
+        stopReq = true;
+        mode = 0;
+        try { if (tts != null) tts.stop(); } catch (Exception ignored) {}
+        goLauncher();
     }
 
     /* ----------------------------- JS bridge ----------------------------- */
@@ -302,6 +307,9 @@ public class MainActivity extends Activity {
         speakBlocking(bye);
         mode = 0; convUuid = null; awaitingEnd = false;
         setOrb("idle");
+        // ending a session (Meta Stop / tap / idle timeout) closes the assistant
+        // and returns to the Portal App page.
+        ui.post(new Runnable() { @Override public void run() { goLauncher(); } });
     }
 
     private static boolean isWake(String s) {
