@@ -2,5 +2,6 @@
   "port": 8765,
   "agent": "",
   "ekTimeout": 120,
-  "verbose": true
+  "verbose": true,
+  "employeeId": "YOUR_EMPLOYEE_ID"
 }

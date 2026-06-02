@@ -43,6 +43,10 @@ def load_config():
         "agent": "",          # optional metamate agent, e.g. "" for default routing
         "ekTimeout": 120,
         "verbose": True,
+        # Per-user: the 6-digit employee ID of whoever set up this Portal. The
+        # people CLIs only expose FBID (not this), so it's set here once; the rest
+        # of the identity (name/title/team/FBID) is auto-pulled from `meta people`.
+        "employeeId": "",
     }
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH) as f:
@@ -52,11 +56,57 @@ def load_config():
 
 CFG = load_config()
 _SID = {"v": None, "ts": 0}
+USER_CTX = ""          # one-line identity preamble injected on new conversations
 
 
 def log(*a):
     if CFG.get("verbose"):
         print("[%s]" % time.strftime("%H:%M:%S"), *a, flush=True)
+
+
+# --------------------------------------------------------------------------- #
+# User identity context (auto-pulled, to personalize Metamate answers)
+# --------------------------------------------------------------------------- #
+def _fetch_profile():
+    """Auto-pull the configuring user's profile via `meta people.profile get`."""
+    try:
+        import getpass
+        u = getpass.getuser()
+        proc = subprocess.run(
+            ["meta", "people.profile", "get", "--unixname", u, "--output=json"],
+            capture_output=True, text=True, timeout=30)
+        m = re.search(r"\{.*\}", proc.stdout or "", re.S)
+        return json.loads(m.group(0)) if m else {}
+    except Exception as e:
+        log("profile fetch failed:", e)
+        return {}
+
+
+def build_user_context():
+    """Build USER_CTX from the auto-pulled profile + the configured employee ID."""
+    global USER_CTX
+    p = _fetch_profile()
+    eid = str(CFG.get("employeeId") or "").strip()
+    bits = []
+    if p.get("name"):
+        bits.append(p["name"] + (" (%s)" % p["unixname"] if p.get("unixname") else ""))
+    if eid:
+        bits.append("employee ID " + eid)
+    if p.get("title"):
+        bits.append(p["title"])
+    if p.get("team"):
+        bits.append("team " + p["team"])
+    if p.get("id"):
+        bits.append("FBID " + p["id"])
+    USER_CTX = ("" if not bits else
+                "[Context about me, the person you are assisting: " + "; ".join(bits) +
+                ". Use this to tailor your answers; don't repeat it back to me.]")
+    log("user context:", USER_CTX or "(none)")
+    return USER_CTX
+
+
+def _with_context(text):
+    return (USER_CTX + "\n\n" + text) if USER_CTX else text
 
 
 # --------------------------------------------------------------------------- #
@@ -84,6 +134,10 @@ def shquote(s):
 
 def metamate_query(text, uuid=None):
     """Return (reply, uuid). Runs on the devserver over the ek bridge."""
+    # On a new conversation, lead with the user's identity context so Metamate
+    # tailors answers; later turns inherit it via the conversation uuid.
+    if not uuid:
+        text = _with_context(text)
     inner = "meta metamate.conversation query --output=json --prompt=" + shquote(text)
     if uuid:
         inner += " --uuid=" + shquote(uuid)
@@ -178,7 +232,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            self._send(200, {"ok": True, "sid": bool(get_sid())})
+            self._send(200, {"ok": True, "sid": bool(get_sid()), "context": bool(USER_CTX)})
         else:
             self._send(404, {"error": "not found"})
 
@@ -210,6 +264,8 @@ def main():
     print("Portal Meta AI proxy on :%d" % port)
     print("  STT: whisper.cpp on devserver, /ask: Metamate on devserver (via ek)")
     print("  devserver SID:", get_sid() or "NONE (run `ek connect` in a terminal)")
+    build_user_context()
+    print("  user context:", USER_CTX or "(none — set employeeId in config.json)")
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 
 
