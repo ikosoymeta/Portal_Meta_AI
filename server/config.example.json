@@ -3,5 +3,5 @@
   "agent": "",
   "ekTimeout": 120,
   "verbose": true,
-  "employeeId": "YOUR_EMPLOYEE_ID"
+  "employeeId": ""
 }

@@ -43,9 +43,9 @@ def load_config():
         "agent": "",          # optional metamate agent, e.g. "" for default routing
         "ekTimeout": 120,
         "verbose": True,
-        # Per-user: the 6-digit employee ID of whoever set up this Portal. The
-        # people CLIs only expose FBID (not this), so it's set here once; the rest
-        # of the identity (name/title/team/FBID) is auto-pulled from `meta people`.
+        # OPTIONAL per-user 6-digit employee ID. Not required: the identity
+        # (name/title/team/FBID) is auto-pulled from `meta people` and Metamate
+        # resolves you from your FBID. Set this only for extra context.
         "employeeId": "",
     }
     if os.path.exists(CONFIG_PATH):
