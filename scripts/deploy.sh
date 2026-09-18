@@ -18,6 +18,9 @@ echo "granting RECORD_AUDIO (user build can't show the runtime dialog)…"
 "$ADB" -s "$SERIAL" shell pm grant "$PKG" android.permission.RECORD_AUDIO 2>/dev/null || true
 echo "granting SYSTEM_ALERT_WINDOW (floating orb overlay)…"
 "$ADB" -s "$SERIAL" shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow 2>/dev/null || true
+# Foreground-app watch, so the orb can swap itself for a Home button over Muse.
+# appops, not pm grant: PACKAGE_USAGE_STATS is an appop, and pm grant fails on it.
+"$ADB" -s "$SERIAL" shell appops set "$PKG" GET_USAGE_STATS allow 2>/dev/null || true
 echo "adb reverse tcp:$PORT (Portal -> Mac proxy)…"
 "$ADB" -s "$SERIAL" reverse tcp:$PORT tcp:$PORT
 # No launcher icon: start the overlay service directly (shows the floating orb),
